@@ -152,7 +152,8 @@ void MIDIOutputCallbackHelper::FireAtTimeStamp(const AudioTimeStamp &inTimeStamp
 			MIDIPacket *pkt = MIDIPacketListInit(pktlist);
 			bool tooBig = false;
 			
-			Byte data[4] = {item.status, item.channel, item.data1, item.data2};
+			Byte midiStatusByte = (item.status << 4) | item.channel;
+			Byte data[3] = { midiStatusByte, item.data1, item.data2 };
 			if ((pkt = MIDIPacketListAdd(pktlist, sizeof(mBuffersAllocated), pkt, item.startFrame, 4, const_cast<Byte*>(data))) == NULL)
 				tooBig = true;
 				
@@ -192,7 +193,8 @@ COMPONENT_ENTRY(SinSynthWithMidi)
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SinSynthWithMidi::SinSynthWithMidi(ComponentInstance inComponentInstance)
 	: SinSynth(inComponentInstance)
-{}
+{
+}
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //	SinSynthWithMidi::~SinSynthWithMidi
@@ -218,7 +220,7 @@ OSStatus			SinSynthWithMidi::GetPropertyInfo(		AudioUnitPropertyID				inID,
 			return noErr;
 		}
 	}
-	return MusicDeviceBase::GetPropertyInfo (inID, inScope, inElement, outDataSize, outWritable);
+	return SinSynth::GetPropertyInfo (inID, inScope, inElement, outDataSize, outWritable);
 }
 
 OSStatus			SinSynthWithMidi::GetProperty(	AudioUnitPropertyID		inID,
@@ -229,14 +231,14 @@ OSStatus			SinSynthWithMidi::GetProperty(	AudioUnitPropertyID		inID,
 	if (inScope == kAudioUnitScope_Global) {
 		if (inID == kAudioUnitProperty_MIDIOutputCallbackInfo) {
 			CFStringRef strs[1];
-			strs[0] = CFSTR("Default Stream");
+			strs[0] = CFSTR("MIDI Callback");
 			
 			CFArrayRef callbackArray = CFArrayCreate(NULL, (const void **)strs, 1, &kCFTypeArrayCallBacks);
-			outData = (void *) callbackArray;
+			*(CFArrayRef *)outData = callbackArray;
 			return noErr;
 		}
 	}
-	return AUBase::GetProperty (inID, inScope, inElement, outData);
+	return SinSynth::GetProperty (inID, inScope, inElement, outData);
 }
 
 OSStatus			SinSynthWithMidi::SetProperty(	AudioUnitPropertyID 			inID,
@@ -254,7 +256,7 @@ OSStatus			SinSynthWithMidi::SetProperty(	AudioUnitPropertyID 			inID,
 			return noErr;
 		}
 	}
-	return kAudioUnitErr_InvalidProperty;
+	return SinSynth::SetProperty(inID, inScope, inElement, inData, inDataSize);
 }
 
 OSStatus 	SinSynthWithMidi::HandleMidiEvent(UInt8 status, UInt8 channel, UInt8 data1, UInt8 data2, UInt32 inStartFrame) {
